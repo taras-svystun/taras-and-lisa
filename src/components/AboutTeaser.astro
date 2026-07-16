@@ -1,0 +1,19 @@
+---
+import { getEntry } from 'astro:content';
+
+const site = await getEntry('site', 'main');
+const { aboutHeading, aboutBody } = site!.data;
+---
+
+<section class="bg-sage px-6 py-20">
+  <div class="mx-auto flex max-w-3xl flex-col items-start gap-6">
+    <h2 class="font-display text-3xl font-bold text-teal sm:text-4xl">{aboutHeading}</h2>
+    <p class="font-sans text-lg leading-relaxed text-ink-soft">{aboutBody[0]}</p>
+    <a
+      href="/about"
+      class="rounded-full bg-ink px-6 py-3 font-display font-semibold text-ivory transition-colors hover:bg-teal"
+    >
+      Read our story
+    </a>
+  </div>
+</section>

@@ -1,0 +1,65 @@
+---
+import { getEntry } from 'astro:content';
+import TrailLine from './TrailLine.astro';
+
+const site = await getEntry('site', 'main');
+const { heroEyebrow, heroHeadline, heroSubhead, aboutPhotoAlt } = site!.data;
+
+const photoFiles = import.meta.glob('/src/assets/taras-and-lisa.*', { eager: true, query: '?url', import: 'default' });
+const photoUrl = Object.values(photoFiles)[0] as string | undefined;
+
+const photoMask = 'border-radius: 46% 54% 58% 42% / 52% 46% 54% 48%;';
+---
+
+<section class="relative overflow-hidden px-6 pt-12 pb-20 sm:pt-20">
+  <TrailLine
+    variant="hero"
+    class="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-70"
+  />
+  <div class="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+    <div class="max-w-xl">
+      <span class="inline-block rounded-full bg-sand px-4 py-1.5 font-display text-sm font-medium text-amber-deep">
+        {heroEyebrow}
+      </span>
+      <h1 class="mt-6 font-display text-4xl font-bold leading-tight text-ink sm:text-5xl lg:text-6xl">
+        {heroHeadline}
+      </h1>
+      <p class="mt-6 font-sans text-lg leading-relaxed text-ink-soft">
+        {heroSubhead}
+      </p>
+      <div class="mt-8 flex flex-wrap gap-4">
+        <a
+          href="/services"
+          class="rounded-full bg-amber px-6 py-3 font-display font-semibold text-ink transition-transform hover:scale-105"
+        >
+          See what we do
+        </a>
+        <a
+          href="/contact"
+          class="rounded-full border-2 border-ink px-6 py-3 font-display font-semibold text-ink transition-colors hover:bg-ink hover:text-ivory"
+        >
+          Say hi
+        </a>
+      </div>
+    </div>
+
+    <div class="relative mx-auto w-full max-w-md">
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt={aboutPhotoAlt}
+          loading="eager"
+          class="aspect-3/4 w-full object-cover shadow-xl"
+          style={photoMask}
+        />
+      ) : (
+        <div
+          class="flex aspect-3/4 w-full items-center justify-center bg-sand text-center font-display text-ink-soft shadow-xl"
+          style={photoMask}
+        >
+          Photo coming soon
+        </div>
+      )}
+    </div>
+  </div>
+</section>

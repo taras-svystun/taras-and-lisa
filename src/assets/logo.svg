@@ -1,0 +1,8 @@
+<svg width="100%" viewBox="0 0 680 280" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Taras &amp; Lisa</title>
+  <desc>A line-art mark of two mountain peaks with a sun above them, over the wordmark "Taras &amp; Lisa" in a handwritten script, with a short tagline underneath.</desc>
+  <path d="M240,150 L295,85 L330,125 L385,70 L440,150" fill="none" stroke="#22302A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="415" cy="68" r="12" fill="#F0E4D0" stroke="#8A5A1F" stroke-width="0.5" />
+  <text x="340" y="215" text-anchor="middle" font-family="Caveat, cursive" font-size="46" font-weight="600" fill="#22302A">Taras &amp; Lisa</text>
+  <text x="340" y="248" text-anchor="middle" font-family="General Sans, ui-sans-serif, system-ui, sans-serif" font-size="13" letter-spacing="1px" fill="#3E4C46">мандруємо. вчимо. надихаємо.</text>
+</svg>

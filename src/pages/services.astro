@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ServicesGrid from '../components/ServicesGrid.astro';
+import { getEntry, getCollection } from 'astro:content';
+
+const site = await getEntry('site', 'main');
+const services = await getCollection('services');
+
+const title = `Services — ${site!.data.name}`;
+const description = `${services.map((s) => s.data.title).slice(0, 3).join(', ')}, and more — seven ways we work with people.`;
+---
+
+<Layout title={title} description={description}>
+  <section class="px-6 pt-16 pb-4 text-center">
+    <h1 class="font-display text-4xl font-bold text-ink sm:text-5xl">Services</h1>
+  </section>
+  <ServicesGrid />
+</Layout>

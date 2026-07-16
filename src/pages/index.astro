@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Hero from '../components/Hero.astro';
+import AboutTeaser from '../components/AboutTeaser.astro';
+import ServicesGrid from '../components/ServicesGrid.astro';
+import ContactCTA from '../components/ContactCTA.astro';
+import { getEntry } from 'astro:content';
+
+const site = await getEntry('site', 'main');
+const { name, heroHeadline, heroSubhead } = site!.data;
+
+const title = `${name} — ${heroHeadline}`;
+const description = heroSubhead;
+---
+
+<Layout title={title} description={description}>
+  <Hero />
+  <AboutTeaser />
+  <ServicesGrid />
+  <ContactCTA size="compact" />
+</Layout>

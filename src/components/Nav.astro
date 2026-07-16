@@ -1,0 +1,45 @@
+---
+const logoFiles = import.meta.glob('/src/assets/logo.*', { eager: true, query: '?url', import: 'default' });
+const logoUrl = Object.values(logoFiles)[0] as string | undefined;
+
+const links = [
+  { href: '/', label: 'Home' },
+  { href: '/about', label: 'About' },
+  { href: '/services', label: 'Services' },
+  { href: '/contact', label: 'Contact' },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<header class="sticky top-0 z-40 bg-ivory/90 backdrop-blur">
+  <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+    <a href="/" class="flex items-center gap-2" aria-label="Taras & Lisa — home">
+      {logoUrl ? (
+        <img src={logoUrl} alt="Taras & Lisa" class="h-10 w-auto" />
+      ) : (
+        <span class="flex h-10 w-32 items-center justify-center rounded-full bg-sand font-display text-xs text-ink-soft">
+          Taras & Lisa
+        </span>
+      )}
+    </a>
+    <ul class="flex items-center gap-1 rounded-full bg-sand/70 p-1 font-display text-sm">
+      {links.map((link) => {
+        const isActive = currentPath === link.href;
+        return (
+          <li>
+            <a
+              href={link.href}
+              aria-current={isActive ? 'page' : undefined}
+              class={`block rounded-full px-4 py-2 transition-colors ${
+                isActive ? 'bg-ink text-ivory' : 'text-ink hover:bg-amber/20'
+              }`}
+            >
+              {link.label}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  </nav>
+</header>

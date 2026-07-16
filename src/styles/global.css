@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ivory: #FBF7EF;
+  --color-ink: #22302A;
+  --color-ink-soft: #3E4C46;
+  --color-amber: #E7A335;
+  --color-amber-deep: #8A5A1F;
+  --color-teal: #2F6E63;
+  --color-sage: #E4EBE1;
+  --color-sand: #F0E4D0;
+
+  --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "General Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-accent: "Caveat", cursive;
+}
+
+body {
+  background-color: var(--color-ivory);
+  color: var(--color-ink);
+}

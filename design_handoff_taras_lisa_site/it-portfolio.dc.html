@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,700,500&f[]=general-sans@400,500,600&display=swap"/>
+  <style>
+    body{margin:0;background:#FBF7EF;color:#22302A;-webkit-font-smoothing:antialiased;}
+    a{color:#2F6E63;text-decoration:none;}
+    a:hover{color:#E7A335;}
+  </style>
+</helmet>
+<div style="font-family:'General Sans',sans-serif;overflow-x:hidden;">
+
+  <nav style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;padding:20px 48px;max-width:1280px;margin:0 auto;">
+    <a href="index.dc.html" style="display:flex;align-items:center;gap:10px;">
+      <img src="uploads/taras_and_lisa_logo_draft.png" alt="Taras & Lisa" style="height:46px;width:auto;object-fit:contain;"/>
+    </a>
+    <div style="display:flex;align-items:center;gap:8px;background:#FFFFFFA0;border-radius:999px;padding:6px;flex-wrap:wrap;justify-content:center;">
+      <a href="index.dc.html" style="padding:10px 18px;border-radius:999px;color:#22302A;font-size:15px;font-weight:600;">Home</a>
+      <a href="about.dc.html" style="padding:10px 18px;border-radius:999px;color:#22302A;font-size:15px;font-weight:600;">About</a>
+      <a href="services.dc.html" style="padding:10px 18px;border-radius:999px;color:#22302A;font-size:15px;font-weight:600;">Services</a>
+      <a href="it-portfolio.dc.html" style="padding:10px 18px;border-radius:999px;background:#22302A;color:#FBF7EF;font-size:15px;font-weight:600;">Portfolio</a>
+      <a href="contact.dc.html" style="padding:10px 18px;border-radius:999px;color:#22302A;font-size:15px;font-weight:600;">Contact</a>
+    </div>
+  </nav>
+
+  <section style="position:relative;max-width:820px;margin:0 auto;padding:40px 48px 20px;text-align:center;">
+    <div style="display:inline-block;padding:8px 18px;border-radius:999px;background:#F0E4D0;color:#8a5a1f;font-size:14px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:24px;">Also: Taras builds AI systems</div>
+    <h1 style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:clamp(30px,4.5vw,44px);line-height:1.15;margin:0 0 20px;">The technical side of Taras</h1>
+    <p style="font-size:18px;line-height:1.65;color:#3E4C46;max-width:640px;margin:0 auto;">Before the mountains and the coaching, there's a technical career: four-plus years building AI products, mostly LLM and NLP systems that go from idea to something a real business actually runs. If you need that side of me for your team, here's the work.</p>
+  </section>
+
+  <div style="max-width:1080px;margin:0 auto;padding:0 48px;">
+    <svg viewBox="0 0 984 70" style="width:100%;height:60px;display:block;" preserveAspectRatio="none">
+      <path d="M0,35 C 165,8 330,62 492,35 C 654,8 819,62 984,35" fill="none" stroke="#2F6E63" stroke-width="3" stroke-dasharray="2 12" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+  </div>
+
+  <section style="background:#E4EBE1;padding:60px 48px 80px;">
+    <div style="max-width:840px;margin:0 auto;">
+      <h2 style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:30px;margin:0 0 36px;">Experience</h2>
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <sc-for list="{{ experience }}" as="e" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:56px 1fr;gap:24px;align-items:start;padding:30px;border-radius:28px;background:#FBF7EF;">
+            <div style="width:48px;height:48px;border-radius:999px;background:#22302A;color:#FBF7EF;display:flex;align-items:center;justify-content:center;font-family:'Cabinet Grotesk',sans-serif;font-weight:700;font-size:16px;">{{ e.num }}</div>
+            <div>
+              <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+                <h3 style="font-family:'Cabinet Grotesk',sans-serif;font-weight:700;font-size:20px;margin:0;">{{ e.role }} · {{ e.company }}</h3>
+                <span style="font-size:14px;color:#8a5a1f;font-weight:600;white-space:nowrap;">{{ e.period }}</span>
+              </div>
+              <ul style="margin:12px 0 0;padding-left:18px;">
+                <sc-for list="{{ e.bullets }}" as="b" hint-placeholder-count="2">
+                  <li style="font-size:15.5px;line-height:1.6;color:#3E4C46;margin-bottom:6px;">{{ b }}</li>
+                </sc-for>
+              </ul>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section style="position:relative;max-width:1280px;margin:0 auto;padding:80px 48px;overflow:hidden;">
+    <h2 style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:30px;margin:0 0 12px;text-align:center;">Projects</h2>
+    <p style="text-align:center;color:#3E4C46;font-size:16px;margin:0 0 44px;">A few things built end to end, code included.</p>
+    <svg viewBox="0 0 1184 420" style="position:absolute;top:130px;left:48px;width:calc(100% - 96px);height:420px;z-index:0;" preserveAspectRatio="none">
+      <path d="M0,40 C 220,140 380,10 592,110 C 804,210 940,40 1184,140" fill="none" stroke="#E7A335" stroke-width="2.5" stroke-dasharray="2 14" stroke-linecap="round" opacity="0.4"/>
+    </svg>
+    <div style="position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:24px;">
+      <sc-for list="{{ projects }}" as="p" hint-placeholder-count="4">
+        <a href="{{ p.url }}" target="_blank" rel="noopener" style="display:block;flex:1 1 {{ p.basis }};min-width:260px;margin-top:{{ p.mt }};padding:32px;border-radius:32px;background:{{ p.bg }};text-decoration:none;color:#22302A;">
+          <h3 style="font-family:'Cabinet Grotesk',sans-serif;font-weight:700;font-size:19px;margin:0 0 10px;">{{ p.title }} →</h3>
+          <p style="font-size:15px;line-height:1.6;color:#3E4C46;margin:0;">{{ p.desc }}</p>
+        </a>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="background:#F0E4D0;padding:60px 48px 80px;">
+    <div style="max-width:760px;margin:0 auto;">
+      <h2 style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:26px;margin:0 0 16px;">Education & writing</h2>
+      <p style="font-size:16px;line-height:1.7;color:#3E4C46;margin:0 0 10px;"><strong>Bachelor of IT and Business Analysis</strong>, Ukrainian Catholic University (2020–2024). Taught Python statistics seminars as an Econometrics TA. Thesis on vocal extraction in low-data regimes — <a href="https://github.com/taras-svystun/Band-Split-RNN/blob/main/example/Taras_Svystun_diploma.pdf" target="_blank" rel="noopener">paper</a>, <a href="https://github.com/taras-svystun/Band-Split-RNN" target="_blank" rel="noopener">repo</a>, <a href="https://taras-svystun.github.io/Band-Split-RNN/" target="_blank" rel="noopener">demo</a>.</p>
+      <p style="font-size:16px;line-height:1.7;color:#3E4C46;margin:0;">Writes public notes on technical books: <a href="https://github.com/taras-svystun/High-Performance-Python" target="_blank" rel="noopener">High Performance Python</a>, <a href="https://github.com/taras-svystun/Learning_Bash_Shell" target="_blank" rel="noopener">Learning Bash Shell</a>, <a href="https://github.com/taras-svystun/Learning_Unix_OS" target="_blank" rel="noopener">Learning Unix</a>.</p>
+    </div>
+  </section>
+
+  <section style="padding:90px 48px;text-align:center;">
+    <div style="max-width:600px;margin:0 auto;">
+      <h2 style="font-family:'Cabinet Grotesk',sans-serif;font-weight:800;font-size:32px;margin:0 0 16px;">Need an AI engineer, not a mountain guide?</h2>
+      <p style="font-size:17px;line-height:1.6;color:#3E4C46;margin:0 0 32px;">Happy to talk through a project, a build, or a consulting engagement.</p>
+      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+        <a href="mailto:tatarik.sv@gmail.com" style="display:inline-block;padding:16px 32px;border-radius:999px;background:#E7A335;color:#22302A;font-weight:600;font-size:16px;">tatarik.sv@gmail.com</a>
+        <a href="https://github.com/taras-svystun" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:16px 32px;border-radius:999px;border:2px solid #22302A;color:#22302A;font-weight:600;font-size:16px;">GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <footer style="max-width:1280px;margin:0 auto;padding:48px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;border-top:1px solid #22302A1A;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="uploads/taras_and_lisa_logo_draft.png" alt="Taras & Lisa" style="height:32px;width:auto;object-fit:contain;"/>
+    </div>
+    <p style="font-size:14px;color:#3E4C46;margin:0;">© 2026 Taras &amp; Lisa</p>
+  </footer>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const experience = [
+      { num:'01', role:'ML Engineer', company:'Litslink', period:'Sep 2023 – Present', bullets:[
+        'Built an LLM-powered food-ordering chatbot (Flowise, Supabase, LangSmith), containerized and shipped with Docker and CI/CD.',
+        'Trained a PyTorch company-classification model at 85% accuracy on a custom dataset collected via web scraping.',
+        'Built a Slack AI assistant (FastAPI, MongoDB, Mistral API) that filters high-volume channels down to what actually matters.'
+      ]},
+      { num:'02', role:'NLP Engineer', company:'HOLYWATER', period:'Sep – Dec 2024', bullets:[
+        'Developed a proof-of-concept RAG pipeline for semantic book evaluation using custom Hugging Face datasets and embedding-based ranking.'
+      ]},
+      { num:'03', role:'ML Engineer', company:'MindCraft.ai', period:'Mar – Aug 2023', bullets:[
+        'Designed TensorFlow housing-price models: 9% MAPE for sellers, 3% MAPE for buyers.',
+        'Built an end-to-end PostgreSQL data pipeline with automated cleaning and feature engineering.'
+      ]},
+      { num:'04', role:'ML / Deep Learning Researcher', company:'NYU & Stony Brook University', period:'Jun 2022 – Aug 2023', bullets:[
+        'Responsible AI, NYU — studied how null-value imputation affects fairness and performance in ML decision systems.',
+        'Stony Brook University — predicted 3D protein structure from amino acid sequence using PyTorch.'
+      ]},
+    ];
+    const projects = [
+      { title:'LLM Document Chatbot', desc:'RAG-based QA chatbot for contextual document search and answers.', url:'https://github.com/taras-svystun/llm-chat-bot-demo', bg:'#E4EBE1', basis:'38%', mt:'0px' },
+      { title:'Geopolitical Data Analysis', desc:'Public-dataset research testing hypotheses and visualizing trends in Python.', url:'https://www.youtube.com/watch?v=p9_CnD20PYo', bg:'#F0E4D0', basis:'46%', mt:'30px' },
+      { title:'Ukrainian vs Russian Social Media', desc:'Pure linear algebra and NLP — classified text origin with LSA at 93% accuracy.', url:'https://github.com/taras-svystun/Distinguishing-Ukrainian-and-Russian-social-media', bg:'#F0E4D0', basis:'40%', mt:'-14px' },
+      { title:'Ukrainian Bible QA Chatbot', desc:'Collected the full Ukrainian Bible text and built a QA chatbot on top of it.', bg:'#E4EBE1', url:'https://github.com/taras-svystun/ukr-bible-qa-chatbot', basis:'38%', mt:'18px' },
+    ];
+    return { experience, projects };
+  }
+}
+</script>
+</body>
+</html>

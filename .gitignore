@@ -141,3 +141,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Astro
+.astro/
+
+# macOS
+.DS_Store
+
+# Design handoff export bundle (duplicated inside design_handoff_taras_lisa_site/)
+taras-and-lisa-design.zip

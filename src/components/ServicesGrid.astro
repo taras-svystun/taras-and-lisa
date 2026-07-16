@@ -1,0 +1,26 @@
+---
+import { getCollection } from 'astro:content';
+import ServiceCard from './ServiceCard.astro';
+import TrailLine from './TrailLine.astro';
+
+const services = await getCollection('services');
+---
+
+<section class="relative px-6 py-20">
+  <TrailLine
+    variant="services"
+    class="pointer-events-none absolute inset-0 -z-10 mx-auto h-full w-full max-w-3xl opacity-60"
+  />
+  <div class="mx-auto grid max-w-5xl gap-x-8 gap-y-8 sm:grid-cols-2">
+    {services.map((service, index) => (
+      <div class={index % 2 === 1 ? 'sm:translate-y-6' : ''}>
+        <ServiceCard
+          id={service.data.id}
+          title={service.data.title}
+          description={service.data.description}
+          index={index}
+        />
+      </div>
+    ))}
+  </div>
+</section>

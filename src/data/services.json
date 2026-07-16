@@ -1,0 +1,37 @@
+[
+  {
+    "id": "couples-coaching",
+    "title": "Couples Coaching",
+    "description": "We work with couples on the things that actually break relationships: communication, emotional patterns, and the small stuff that becomes big stuff. Grounded in psychology, not platitudes."
+  },
+  {
+    "id": "mountain-guiding",
+    "title": "Mountain Guiding",
+    "description": "Guided treks and hikes for people who want to get into the mountains safely — whether that's your first summit or your fiftieth."
+  },
+  {
+    "id": "snowboard-lessons",
+    "title": "Snowboard Lessons",
+    "description": "Private snowboard instruction for beginners through intermediate riders. We'll get you off the beginner slope faster than you think."
+  },
+  {
+    "id": "running-survival",
+    "title": "Running & Outdoor Survival",
+    "description": "Trail running coaching paired with the basics of outdoor survival — because running far means less if you don't know what to do once you're actually out there."
+  },
+  {
+    "id": "teen-mentoring",
+    "title": "Mentoring for Teens & Young Adults",
+    "description": "Coaching and mentorship for teen camps and youth groups — we've been the adults kids actually listen to."
+  },
+  {
+    "id": "dj-basics",
+    "title": "DJ Basics",
+    "description": "A hands-on introduction to DJing for complete beginners. No prior music experience needed, just curiosity."
+  },
+  {
+    "id": "yoga-breathwork",
+    "title": "Yoga & Breathwork",
+    "description": "Foundational yoga and breathing practice for people who want to slow down without turning it into a whole lifestyle."
+  }
+]

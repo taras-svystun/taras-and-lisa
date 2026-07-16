@@ -1,0 +1,15 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ContactCTA from '../components/ContactCTA.astro';
+import { getEntry } from 'astro:content';
+
+const site = await getEntry('site', 'main');
+const { name, contactHeading, contactBody } = site!.data;
+
+const title = `${contactHeading} — ${name}`;
+const description = contactBody;
+---
+
+<Layout title={title} description={description}>
+  <ContactCTA size="full" />
+</Layout>
