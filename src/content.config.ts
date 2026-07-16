@@ -29,4 +29,37 @@ const services = defineCollection({
   }),
 });
 
-export const collections = { site, services };
+const portfolio = defineCollection({
+  loader: file('src/data/portfolio.json'),
+  schema: z.object({
+    eyebrow: z.string(),
+    heading: z.string(),
+    subhead: z.string(),
+    experienceHeading: z.string(),
+    experience: z.array(
+      z.object({
+        role: z.string(),
+        company: z.string(),
+        period: z.string(),
+        bullets: z.array(z.string()),
+      }),
+    ),
+    projectsHeading: z.string(),
+    projectsSubhead: z.string(),
+    projects: z.array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        url: z.string().url(),
+      }),
+    ),
+    educationHeading: z.string(),
+    educationBody: z.array(z.string()),
+    ctaHeading: z.string(),
+    ctaBody: z.string(),
+    ctaEmail: z.string().email(),
+    githubUrl: z.string().url(),
+  }),
+});
+
+export const collections = { site, services, portfolio };

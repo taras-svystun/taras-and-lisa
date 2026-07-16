@@ -1,0 +1,79 @@
+{
+  "main": {
+    "eyebrow": "Also: Taras builds AI systems",
+    "heading": "The technical side of Taras",
+    "subhead": "Before the mountains and the coaching, there's a technical career: four-plus years building AI products, mostly LLM and NLP systems that go from idea to something a real business actually runs. If you need that side of me for your team, here's the work.",
+    "experienceHeading": "Experience",
+    "experience": [
+      {
+        "role": "ML Engineer",
+        "company": "Litslink",
+        "period": "Sep 2023 – Present",
+        "bullets": [
+          "Built an LLM-powered food-ordering chatbot (Flowise, Supabase, LangSmith), containerized and shipped with Docker and CI/CD.",
+          "Trained a PyTorch company-classification model at 85% accuracy on a custom dataset collected via web scraping.",
+          "Built a Slack AI assistant (FastAPI, MongoDB, Mistral API) that filters high-volume channels down to what actually matters."
+        ]
+      },
+      {
+        "role": "NLP Engineer",
+        "company": "HOLYWATER",
+        "period": "Sep – Dec 2024",
+        "bullets": [
+          "Developed a proof-of-concept RAG pipeline for semantic book evaluation using custom Hugging Face datasets and embedding-based ranking."
+        ]
+      },
+      {
+        "role": "ML Engineer",
+        "company": "MindCraft.ai",
+        "period": "Mar – Aug 2023",
+        "bullets": [
+          "Designed TensorFlow housing-price models: 9% MAPE for sellers, 3% MAPE for buyers.",
+          "Built an end-to-end PostgreSQL data pipeline with automated cleaning and feature engineering."
+        ]
+      },
+      {
+        "role": "ML / Deep Learning Researcher",
+        "company": "NYU & Stony Brook University",
+        "period": "Jun 2022 – Aug 2023",
+        "bullets": [
+          "Responsible AI, NYU — studied how null-value imputation affects fairness and performance in ML decision systems.",
+          "Stony Brook University — predicted 3D protein structure from amino acid sequence using PyTorch."
+        ]
+      }
+    ],
+    "projectsHeading": "Projects",
+    "projectsSubhead": "A few things built end to end, code included.",
+    "projects": [
+      {
+        "title": "LLM Document Chatbot",
+        "description": "RAG-based QA chatbot for contextual document search and answers.",
+        "url": "https://github.com/taras-svystun/llm-chat-bot-demo"
+      },
+      {
+        "title": "Geopolitical Data Analysis",
+        "description": "Public-dataset research testing hypotheses and visualizing trends in Python.",
+        "url": "https://www.youtube.com/watch?v=p9_CnD20PYo"
+      },
+      {
+        "title": "Ukrainian vs Russian Social Media",
+        "description": "Pure linear algebra and NLP — classified text origin with LSA at 93% accuracy.",
+        "url": "https://github.com/taras-svystun/Distinguishing-Ukrainian-and-Russian-social-media"
+      },
+      {
+        "title": "Ukrainian Bible QA Chatbot",
+        "description": "Collected the full Ukrainian Bible text and built a QA chatbot on top of it.",
+        "url": "https://github.com/taras-svystun/ukr-bible-qa-chatbot"
+      }
+    ],
+    "educationHeading": "Education & writing",
+    "educationBody": [
+      "<strong>Bachelor of IT and Business Analysis</strong>, Ukrainian Catholic University (2020–2024). Taught Python statistics seminars as an Econometrics TA. Thesis on vocal extraction in low-data regimes — <a href=\"https://github.com/taras-svystun/Band-Split-RNN/blob/main/example/Taras_Svystun_diploma.pdf\" target=\"_blank\" rel=\"noopener\" class=\"text-teal underline hover:text-amber\">paper</a>, <a href=\"https://github.com/taras-svystun/Band-Split-RNN\" target=\"_blank\" rel=\"noopener\" class=\"text-teal underline hover:text-amber\">repo</a>, <a href=\"https://taras-svystun.github.io/Band-Split-RNN/\" target=\"_blank\" rel=\"noopener\" class=\"text-teal underline hover:text-amber\">demo</a>.",
+      "Writes public notes on technical books: <a href=\"https://github.com/taras-svystun/High-Performance-Python\" target=\"_blank\" rel=\"noopener\" class=\"text-teal underline hover:text-amber\">High Performance Python</a>, <a href=\"https://github.com/taras-svystun/Learning_Bash_Shell\" target=\"_blank\" rel=\"noopener\" class=\"text-teal underline hover:text-amber\">Learning Bash Shell</a>, <a href=\"https://github.com/taras-svystun/Learning_Unix_OS\" target=\"_blank\" rel=\"noopener\" class=\"text-teal underline hover:text-amber\">Learning Unix</a>."
+    ],
+    "ctaHeading": "Need an AI engineer, not a mountain guide?",
+    "ctaBody": "Happy to talk through a project, a build, or a consulting engagement.",
+    "ctaEmail": "tatarik.sv@gmail.com",
+    "githubUrl": "https://github.com/taras-svystun"
+  }
+}
