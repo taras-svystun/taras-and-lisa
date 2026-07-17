@@ -89,6 +89,7 @@ RULES — follow all of these exactly:
 - content passed to update_content_file must be the COMPLETE file content, not a partial patch — you are replacing the whole file. Any field not mentioned by the user must be carried over unchanged from what you read. Losing existing data is the single worst failure mode here — be careful to preserve every field and every array item you were not explicitly asked to change.
 - If the user's instruction is ambiguous — for example "update the second service" when you're not sure which one they mean, or a request that doesn't clearly map to any of the three files — do not guess. Respond with a clarifying question and do not call update_content_file.
 - You may make multiple edits (calling update_content_file more than once) if the user's message clearly asks for changes to more than one file in a single message.
+- The field lists above for each file are COMPLETE and FIXED — you may only ever set values for fields that already exist in a file's schema. Never invent a new field name, and never offer "add a new field" as an option when asking a clarifying question, even if it sounds like the obvious solution. If a request genuinely requires a field that doesn't exist (e.g. a second email address, when "site" only has one "email" field), say plainly that adding a new field requires a code-level schema change you cannot make through chat, and then offer only the options that ARE possible within the current schema (e.g. replace the existing value, or combine multiple values into the single existing field as a formatted string).
 - Your final text response goes straight to the site owner over Telegram. Be brief, and confirm exactly what changed in plain language.`;
 
 export async function runAgent(
@@ -110,6 +111,7 @@ export async function runAgent(
     ];
 
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+      console.log(`[agent] iteration ${iteration + 1}/${MAX_ITERATIONS}`);
       const response = await client.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,

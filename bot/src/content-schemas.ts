@@ -17,60 +17,75 @@ import { z } from "zod";
  *
  * site/src/data/services.json has no such wrapper — it's a flat array on disk, read
  * via `getCollection('services')` — so servicesSchema validates that array directly.
+ *
+ * Every object schema below uses .strict() — Zod's default "strip mode" silently drops
+ * unknown keys instead of erroring, which let an unwritable field pass validation as a
+ * false success (see dev-diary.md's 2026-07-17 "silent field strip" incident). Never
+ * remove .strict() from an object schema here.
  */
 
-export const siteSchema = z.object({
-  name: z.string(),
-  heroEyebrow: z.string(),
-  heroHeadline: z.string(),
-  heroSubhead: z.string(),
-  aboutHeading: z.string(),
-  aboutBody: z.array(z.string()),
-  aboutPhotoAlt: z.string(),
-  contactHeading: z.string(),
-  contactBody: z.string(),
-  email: z.string().email(),
-  instagramUrl: z.string().url().optional(),
-  telegramUrl: z.string().url().optional(),
-});
+export const siteSchema = z
+  .object({
+    name: z.string(),
+    heroEyebrow: z.string(),
+    heroHeadline: z.string(),
+    heroSubhead: z.string(),
+    aboutHeading: z.string(),
+    aboutBody: z.array(z.string()),
+    aboutPhotoAlt: z.string(),
+    contactHeading: z.string(),
+    contactBody: z.string(),
+    email: z.string().email(),
+    instagramUrl: z.string().url().optional(),
+    telegramUrl: z.string().url().optional(),
+  })
+  .strict();
 
 export const servicesSchema = z.array(
-  z.object({
-    id: z.string(),
-    title: z.string(),
-    description: z.string(),
-  }),
-);
-
-export const portfolioSchema = z.object({
-  eyebrow: z.string(),
-  heading: z.string(),
-  subhead: z.string(),
-  experienceHeading: z.string(),
-  experience: z.array(
-    z.object({
-      role: z.string(),
-      company: z.string(),
-      period: z.string(),
-      bullets: z.array(z.string()),
-    }),
-  ),
-  projectsHeading: z.string(),
-  projectsSubhead: z.string(),
-  projects: z.array(
-    z.object({
+  z
+    .object({
+      id: z.string(),
       title: z.string(),
       description: z.string(),
-      url: z.string().url(),
-    }),
-  ),
-  educationHeading: z.string(),
-  educationBody: z.array(z.string()),
-  ctaHeading: z.string(),
-  ctaBody: z.string(),
-  ctaEmail: z.string().email(),
-  githubUrl: z.string().url(),
-});
+    })
+    .strict(),
+);
+
+export const portfolioSchema = z
+  .object({
+    eyebrow: z.string(),
+    heading: z.string(),
+    subhead: z.string(),
+    experienceHeading: z.string(),
+    experience: z.array(
+      z
+        .object({
+          role: z.string(),
+          company: z.string(),
+          period: z.string(),
+          bullets: z.array(z.string()),
+        })
+        .strict(),
+    ),
+    projectsHeading: z.string(),
+    projectsSubhead: z.string(),
+    projects: z.array(
+      z
+        .object({
+          title: z.string(),
+          description: z.string(),
+          url: z.string().url(),
+        })
+        .strict(),
+    ),
+    educationHeading: z.string(),
+    educationBody: z.array(z.string()),
+    ctaHeading: z.string(),
+    ctaBody: z.string(),
+    ctaEmail: z.string().email(),
+    githubUrl: z.string().url(),
+  })
+  .strict();
 
 export type SiteContent = z.infer<typeof siteSchema>;
 export type ServicesContent = z.infer<typeof servicesSchema>;

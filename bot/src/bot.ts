@@ -2,6 +2,7 @@ import { Bot } from "grammy";
 import type { UserFromGetMe } from "grammy/types";
 import { runAgent } from "./agent";
 import { loadHistory, saveHistory, clearHistory, type ConversationTurn } from "./conversation-memory";
+import { undoLastBotChange } from "./undo";
 
 export interface Env {
   BOT_TOKEN: string;
@@ -26,7 +27,7 @@ export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
 
   bot.command("start", (ctx) =>
     ctx.reply(
-      "TypeToDeploy is online. Send /status to check health, or /reset to clear the conversation memory and start fresh."
+      "TypeToDeploy is online. Send /status to check health, /reset to clear the conversation memory and start fresh, or /undo to revert the most recent bot-made change. (Running /undo twice in a row re-applies the original change — it's just reverting the revert.)"
     )
   );
 
@@ -37,6 +38,17 @@ export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
   bot.command("reset", async (ctx) => {
     await clearHistory(env, ctx.chat.id);
     await ctx.reply("Memory cleared, starting fresh.");
+  });
+
+  bot.command("undo", async (ctx) => {
+    await ctx.reply("⏳ Looking for the last bot change to undo...");
+    try {
+      const result = await undoLastBotChange(env);
+      await ctx.reply(result);
+    } catch (err) {
+      console.error("Undo command failed unexpectedly:", err);
+      await ctx.reply("Something went wrong while trying to undo, please try again.");
+    }
   });
 
   bot.on("message:text", async (ctx) => {
