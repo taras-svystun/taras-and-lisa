@@ -2,7 +2,8 @@ import { webhookCallback } from "grammy";
 import type { UserFromGetMe } from "grammy/types";
 import PostalMime from "postal-mime";
 import { createBot, type Env } from "./bot";
-import { logEvent } from "./logger";
+import { logUserMessage, logRawDeployMessage, logDeployEvent, logError } from "./logger";
+import { traceCreateEvent, spanCreateEvent, sendToLangfuse } from "./langfuse";
 
 let cachedBotInfo: UserFromGetMe | undefined;
 
@@ -10,7 +11,32 @@ const FALLBACK_MESSAGE =
   "Something went wrong internally and I couldn't finish. Please try again, or send /reset to clear the conversation and start over.";
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Logged before ANY parsing, validation, or routing — including before
+    // the /webhooks/pages-deploy vs /telegram-webhook branch below — so a
+    // dropped update always leaves a trace of having arrived at all. Targets
+    // a suspected bug where the first message after /start sometimes
+    // silently disappears: if it's dropped downstream, this line proves it
+    // got here; if it's missing even here, the problem is upstream of the
+    // Worker entirely. update_id showing up twice would mean Telegram is
+    // redelivering the same webhook.
+    let rawUpdate: unknown;
+    try {
+      rawUpdate = await request.clone().json();
+    } catch {
+      rawUpdate = undefined;
+    }
+    const update = rawUpdate as
+      | {
+          update_id?: number;
+          message?: { chat?: { id?: number }; text?: string };
+          callback_query?: { data?: string };
+        }
+      | undefined;
+    const chatId = update?.message?.chat?.id;
+    const updateId = update?.update_id;
+    logUserMessage(chatId, updateId, update?.message?.text ?? update?.callback_query?.data ?? "");
+
     const url = new URL(request.url);
 
     if (request.method === "POST" && url.pathname === "/webhooks/pages-deploy") {
@@ -26,26 +52,13 @@ export default {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    // Extract the chat id from a cloned copy of the body BEFORE handing the
-    // request to grammY, so a fallback reply can still be sent — with the
-    // right chat id — even if something below throws in a way that bypasses
-    // every other layer of error handling (bot.ts's try/catch, agent.ts's
-    // try/catch, this handler's own inner try/catch around webhookCallback).
-    let chatId: number | undefined;
-    try {
-      const update = (await request.clone().json()) as { message?: { chat?: { id?: number } } };
-      chatId = update.message?.chat?.id;
-    } catch (err) {
-      console.error("Failed to pre-parse update body for fallback chat id:", err);
-    }
-
     // Top-level try/catch, deliberately outside of anything bot.ts or
     // agent.ts already do internally — this is the last line of defense.
     // See dev-diary.md's "silent field strip → hang" incident: the bot went
     // fully silent once because nothing at this outer layer guaranteed a
     // reply was sent no matter what broke.
     try {
-      const bot = createBot(env, cachedBotInfo);
+      const bot = createBot(env, cachedBotInfo, ctx);
       if (!cachedBotInfo) {
         await bot.init();
         cachedBotInfo = bot.botInfo;
@@ -54,17 +67,14 @@ export default {
       const handleUpdate = webhookCallback(bot, "cloudflare-mod");
       return await handleUpdate(request);
     } catch (err) {
-      console.error("Webhook handler error (outer catch):", err);
-      logEvent({
-        type: "uncaught_error",
-        level: "error",
-        message: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
-      });
+      logError({ chatId, step: "webhook_outer_catch", error: err });
       if (chatId !== undefined) {
         await sendTelegramMessage(env, chatId, FALLBACK_MESSAGE);
       } else {
-        console.error("No chat id available — could not send a fallback reply.");
+        logError({
+          step: "webhook_outer_catch_no_chat_id",
+          error: new Error("No chat id available — could not send a fallback reply."),
+        });
       }
       return new Response("OK", { status: 200 });
     }
@@ -85,18 +95,14 @@ export default {
       const subject = parsed.subject ?? "";
       const body = parsed.text ?? parsed.html ?? "";
 
-      logEvent({ type: "deploy_email_received", level: "info", subject, body });
+      logRawDeployMessage({ source: "email", raw: { subject, body } });
 
       const info = extractDeployInfoFromEmail(subject, body);
       const telegramMessage = composeDeployMessage(info);
 
       await sendTelegramMessage(env, Number(env.ALLOWED_USER_ID), telegramMessage);
     } catch (err) {
-      logEvent({
-        type: "deploy_email_error",
-        level: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      logError({ step: "deploy_email", error: err });
     }
   },
 
@@ -107,32 +113,28 @@ export default {
   async queue(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {
     for (const message of batch.messages) {
       try {
-        logEvent({ type: "build_event_received", level: "info", event: message.body });
+        logRawDeployMessage({ source: "workers_builds_queue", raw: message.body });
 
         const info = extractBuildEventInfo(message.body);
+        logDeployEvent({
+          eventType: info.eventType,
+          branch: info.branch,
+          commitSha: info.commitHash,
+          buildOutcome: info.buildOutcome,
+        });
 
-        if (info.outcome === "ignored") {
-          logEvent({ type: "build_event_ignored", level: "info", workerName: info.workerName });
-        } else if (info.branch !== "main") {
-          // Cloudflare can auto-create other branches (e.g. the
-          // cloudflare/workers-autoconfig bot) — those builds shouldn't page
-          // the owner over Telegram.
-          logEvent({
-            type: "build_event_ignored_non_main_branch",
-            level: "info",
-            workerName: info.workerName,
-            branch: info.branch,
-          });
-        } else {
+        const isTerminal = info.buildOutcome === "success" || info.buildOutcome === "failure";
+        if (isTerminal && info.branch === "main") {
           const telegramMessage = composeBuildEventMessage(info);
           await sendTelegramMessage(env, Number(env.ALLOWED_USER_ID), telegramMessage);
         }
+        // Non-terminal (still running / canceled) and non-main-branch builds
+        // (e.g. Cloudflare's own cloudflare/workers-autoconfig bot branch)
+        // are logged above via logDeployEvent but shouldn't page the owner.
+
+        await correlateWithLangfuseSession(env, ctx, info);
       } catch (err) {
-        logEvent({
-          type: "build_event_error",
-          level: "error",
-          message: err instanceof Error ? err.message : String(err),
-        });
+        logError({ step: "build_event_processing", error: err });
       }
 
       // Always ack, even on error — this is a low-stakes notification, not
@@ -155,7 +157,7 @@ async function sendTelegramMessage(env: Env, chatId: number, text: string): Prom
       body: JSON.stringify({ chat_id: chatId, text }),
     });
   } catch (err) {
-    console.error("Telegram sendMessage call failed:", err);
+    logError({ chatId, step: "send_telegram_message", error: err });
   }
 }
 
@@ -172,8 +174,9 @@ interface DeployInfo {
 // under `data`, but the exact field names inside `data` for a Pages
 // deployment aren't published. This tries several plausible key names and
 // falls back to "unknown"/undefined rather than throwing — refine the key
-// names once a real payload has been observed via the cf_deploy_webhook_received
-// log line below.
+// names once a real payload has been observed via the raw-payload log line
+// in handlePagesDeployWebhook below. No official schema exists for this
+// dormant path, unlike extractBuildEventInfo below.
 function extractDeployInfo(payload: unknown): DeployInfo {
   const root = payload as Record<string, unknown> | undefined;
   const data = (root?.data as Record<string, unknown> | undefined) ?? {};
@@ -260,53 +263,55 @@ function composeDeployMessage(info: DeployInfo): string {
     return `🚀 Deploy succeeded for ${info.project}. Live in a minute or two.${urlSuffix}`;
   }
   if (info.outcome === "failure") {
-    return `❌ Deploy failed for ${info.project}. Check the Cloudflare dashboard for build logs. If this was caused by your last edit, send /undo to revert it.`;
+    return `❌ Deploy failed for ${info.project}. Check the Cloudflare dashboard for build logs. If this was caused by an edit made through this bot's chat, send /undo to revert it — /undo can't revert manual edits made directly on GitHub.`;
   }
   return `ℹ️ Received a deployment event for ${info.project}, status unclear — check the Cloudflare dashboard.`;
 }
 
 interface BuildEventInfo {
+  eventType: string;
   workerName: string;
-  outcome: "success" | "failure" | "ignored" | "unknown";
+  status: string;
+  buildOutcome: string | null;
   branch?: string;
+  commitHash?: string;
   commitMessage?: string;
+  author?: string;
+  createdAt?: string;
+  stoppedAt?: string;
 }
 
-// Workers Builds event shape (per Cloudflare's docs, confirmed against a real
-// message via the build_event_received log line on first delivery):
-// { type: "cf.workersBuilds.worker.build.failed", source: { workerName },
-//   payload: { status, buildOutcome, buildTriggerMetadata: { branch, commitMessage, ... } } }
-// Same defensive philosophy as extractDeployInfo/extractDeployInfoFromEmail
-// above: optional chaining everywhere, "unknown" fallback, never throw on a
-// missing/unexpected field. "started"/"cancelled" events are classified as
-// "ignored" — the queue handler logs those but doesn't message Telegram.
+// Workers Builds event shape, per Cloudflare's documented contract
+// (developers.cloudflare.com/workers/ci-cd/builds/event-subscriptions,
+// confirmed against the docs 2026-07-23 — not a guess like extractDeployInfo
+// above):
+//   { type: "cf.workersBuilds.worker.build.<succeeded|failed|canceled|started>",
+//     source: { workerName },
+//     payload: { status, buildOutcome, createdAt, stoppedAt,
+//                buildTriggerMetadata: { branch, commitHash, commitMessage, author, ... } } }
+// `status` is "success"/"failed"/"canceled"/"running"; buildOutcome mirrors
+// it as "success"/"failure"/"canceled"/null (while running). Optional
+// chaining throughout and "unknown" fallbacks so an unexpected/changed shape
+// never throws — the raw payload is always logged separately (see queue()
+// above) as a permanent safety net in case eventSchemaVersion changes later.
 function extractBuildEventInfo(raw: unknown): BuildEventInfo {
   const root = raw as Record<string, unknown> | undefined;
   const source = root?.source as Record<string, unknown> | undefined;
   const payload = root?.payload as Record<string, unknown> | undefined;
   const triggerMeta = payload?.buildTriggerMetadata as Record<string, unknown> | undefined;
 
-  const workerName =
-    firstNonEmptyString(source?.workerName, root?.workerName, payload?.workerName) ?? "unknown";
-
-  const branch = firstNonEmptyString(triggerMeta?.branch);
-  const commitMessage = firstNonEmptyString(triggerMeta?.commitMessage);
-
-  const statusText = [root?.type, payload?.status, payload?.buildOutcome]
-    .filter((v): v is string => typeof v === "string")
-    .join(" ")
-    .toLowerCase();
-
-  let outcome: BuildEventInfo["outcome"] = "unknown";
-  if (statusText.includes("started") || statusText.includes("cancel")) {
-    outcome = "ignored";
-  } else if (statusText.includes("fail") || statusText.includes("error")) {
-    outcome = "failure";
-  } else if (statusText.includes("success") || statusText.includes("succeed")) {
-    outcome = "success";
-  }
-
-  return { workerName, outcome, branch, commitMessage };
+  return {
+    eventType: typeof root?.type === "string" ? root.type : "unknown",
+    workerName: typeof source?.workerName === "string" ? source.workerName : "unknown",
+    status: typeof payload?.status === "string" ? payload.status : "unknown",
+    buildOutcome: typeof payload?.buildOutcome === "string" ? payload.buildOutcome : null,
+    branch: typeof triggerMeta?.branch === "string" ? triggerMeta.branch : undefined,
+    commitHash: typeof triggerMeta?.commitHash === "string" ? triggerMeta.commitHash : undefined,
+    commitMessage: typeof triggerMeta?.commitMessage === "string" ? triggerMeta.commitMessage : undefined,
+    author: typeof triggerMeta?.author === "string" ? triggerMeta.author : undefined,
+    createdAt: typeof payload?.createdAt === "string" ? payload.createdAt : undefined,
+    stoppedAt: typeof payload?.stoppedAt === "string" ? payload.stoppedAt : undefined,
+  };
 }
 
 // Mirrors composeDeployMessage()'s wording/emoji conventions (🚀/❌/ℹ️, same
@@ -317,14 +322,61 @@ function extractBuildEventInfo(raw: unknown): BuildEventInfo {
 // field happens to be set, which is more confusing than two small functions.
 function composeBuildEventMessage(info: BuildEventInfo): string {
   const branchSuffix = info.branch ? ` (${info.branch})` : "";
-  if (info.outcome === "success") {
-    const commitSuffix = info.commitMessage ? ` ${info.commitMessage}` : "";
+  if (info.buildOutcome === "success") {
+    const commitSuffix = info.commitMessage ? ` ${stripLangfuseTrailer(info.commitMessage)}` : "";
     return `🚀 Deploy succeeded for ${info.workerName}${branchSuffix}.${commitSuffix}`;
   }
-  if (info.outcome === "failure") {
-    return `❌ Deploy failed for ${info.workerName}${branchSuffix}. Check the Cloudflare dashboard for build logs. Send /undo if this was caused by your last edit.`;
+  if (info.buildOutcome === "failure") {
+    // /undo only reverts edits made through this bot's own chat — a manual
+    // GitHub edit isn't something /undo can find or revert (see undo.ts).
+    return `❌ Deploy failed for ${info.workerName}${branchSuffix}. Check the Cloudflare dashboard for build logs. If this was caused by an edit made through this bot's chat, send /undo to revert it — /undo can't revert manual edits made directly on GitHub.`;
   }
-  return `ℹ️ Received a build event for ${info.workerName}, status unclear — check the Cloudflare dashboard.`;
+  return `ℹ️ Received a build event for ${info.workerName}${branchSuffix}, status unclear — check the Cloudflare dashboard.`;
+}
+
+// The Langfuse-Session trailer (added by agent.ts when the bot commits an
+// edit) must never leak into a message shown to the owner.
+function stripLangfuseTrailer(message: string): string {
+  return message.replace(/\n*Langfuse-Session:\s*\S+\s*/g, "").trimEnd();
+}
+
+// Correlates a build event back to the chat that triggered it, so the whole
+// message -> LLM -> tool calls -> GitHub commit -> deploy outcome lifecycle
+// shows up under one Langfuse session, even though the deploy event arrives
+// in a separate Worker invocation minutes later. Silently does nothing if
+// the commit wasn't made by this bot (no trailer to find) — e.g. a manual
+// GitHub edit outside the bot's chat.
+async function correlateWithLangfuseSession(
+  env: Env,
+  ctx: ExecutionContext,
+  info: BuildEventInfo,
+): Promise<void> {
+  const sessionMatch = info.commitMessage?.match(/Langfuse-Session:\s*(\S+)/);
+  if (!sessionMatch) return;
+
+  const sessionId = sessionMatch[1];
+  const traceId = crypto.randomUUID();
+  const startTime = info.createdAt ?? new Date().toISOString();
+  const endTime = info.stoppedAt ?? new Date().toISOString();
+
+  const langfuseBatch = [
+    traceCreateEvent({
+      id: traceId,
+      name: "deploy-event",
+      sessionId,
+      input: { branch: info.branch, commitHash: info.commitHash },
+      metadata: { eventType: info.eventType },
+    }),
+    spanCreateEvent({
+      traceId,
+      name: "workers-build",
+      startTime,
+      endTime,
+      input: { branch: info.branch, commitHash: info.commitHash },
+      output: { status: info.status, buildOutcome: info.buildOutcome },
+    }),
+  ];
+  ctx.waitUntil(sendToLangfuse(env, langfuseBatch));
 }
 
 async function handlePagesDeployWebhook(request: Request, env: Env): Promise<Response> {
@@ -336,18 +388,14 @@ async function handlePagesDeployWebhook(request: Request, env: Env): Promise<Res
   try {
     const payload: unknown = await request.json();
 
-    logEvent({ type: "cf_deploy_webhook_received", level: "info", payload });
+    logRawDeployMessage({ source: "webhook", raw: payload });
 
     const info = extractDeployInfo(payload);
     const message = composeDeployMessage(info);
 
     await sendTelegramMessage(env, Number(env.ALLOWED_USER_ID), message);
   } catch (err) {
-    logEvent({
-      type: "cf_deploy_webhook_error",
-      level: "error",
-      message: err instanceof Error ? err.message : String(err),
-    });
+    logError({ step: "pages_deploy_webhook", error: err });
   }
 
   // Always 200 — a non-2xx response makes Cloudflare treat this as a failed

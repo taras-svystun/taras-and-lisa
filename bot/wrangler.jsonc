@@ -6,14 +6,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true,
-    "logs": {
-      "invocation_logs": true,
-      "head_sampling_rate": 1
-    }
+    "head_sampling_rate": 1
   },
   "vars": {
     "GITHUB_OWNER": "taras-svystun",
-    "GITHUB_REPO": "taras-and-lisa"
+    "GITHUB_REPO": "taras-and-lisa",
+    "LANGFUSE_HOST": "https://cloud.langfuse.com"
   },
   "kv_namespaces": [
     {

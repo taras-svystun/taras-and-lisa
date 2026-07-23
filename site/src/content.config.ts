@@ -17,7 +17,7 @@ const site = defineCollection({
     email: z.string().email(),
     instagramUrl: z.string().url().optional(),
     telegramUrl: z.string().url().optional(),
-  }),
+  }).strict(),
 });
 
 const services = defineCollection({
@@ -26,7 +26,7 @@ const services = defineCollection({
     id: z.string(),
     title: z.string(),
     description: z.string(),
-  }),
+  }).strict(),
 });
 
 const portfolio = defineCollection({
@@ -42,7 +42,7 @@ const portfolio = defineCollection({
         company: z.string(),
         period: z.string(),
         bullets: z.array(z.string()),
-      }),
+      }).strict(),
     ),
     projectsHeading: z.string(),
     projectsSubhead: z.string(),
@@ -51,7 +51,7 @@ const portfolio = defineCollection({
         title: z.string(),
         description: z.string(),
         url: z.string().url(),
-      }),
+      }).strict(),
     ),
     educationHeading: z.string(),
     educationBody: z.array(z.string()),
@@ -59,7 +59,7 @@ const portfolio = defineCollection({
     ctaBody: z.string(),
     ctaEmail: z.string().email(),
     githubUrl: z.string().url(),
-  }),
+  }).strict(),
 });
 
 export const collections = { site, services, portfolio };

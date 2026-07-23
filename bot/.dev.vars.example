@@ -4,3 +4,6 @@ ALLOWED_USER_ID=your-telegram-numeric-user-id-here
 ANTHROPIC_API_KEY=your-anthropic-api-key-here
 GITHUB_PAT=your-github-fine-grained-pat-here
 CF_WEBHOOK_SECRET=your-random-cloudflare-notification-webhook-secret-here
+LANGFUSE_PUBLIC_KEY=pk-lf-your-langfuse-public-key-here
+LANGFUSE_SECRET_KEY=sk-lf-your-langfuse-secret-key-here
+LANGFUSE_HOST=https://cloud.langfuse.com

@@ -4,7 +4,14 @@ import type { Env } from "./bot";
 import { CONTENT_FILES, type ServicesContent } from "./content-schemas";
 import { getFile, updateFile, GitHubApiError } from "./github";
 import type { ConversationTurn } from "./conversation-memory";
-import { logEvent } from "./logger";
+import { logLlmCallStart, logLlmCall, logToolCall, logGithubCommit, logError } from "./logger";
+import { type LangfuseEvent, traceCreateEvent, generationCreateEvent, spanCreateEvent } from "./langfuse";
+
+interface LangfuseTurnContext {
+  traceId: string;
+  parentObservationId: string;
+  batch: LangfuseEvent[];
+}
 
 /**
  * The core agentic loop: takes a free-text instruction from the site owner
@@ -105,8 +112,20 @@ export async function runAgent(
   env: Env,
   userMessage: string,
   history: ConversationTurn[],
-): Promise<{ finalText: string; commits: CommitRecord[] }> {
+  chatId: number,
+  updateId: number,
+): Promise<{ finalText: string; commits: CommitRecord[]; langfuseBatch: LangfuseEvent[] }> {
   const commits: CommitRecord[] = [];
+  const traceId = crypto.randomUUID();
+  const langfuseBatch: LangfuseEvent[] = [
+    traceCreateEvent({
+      id: traceId,
+      name: "telegram-message",
+      sessionId: String(chatId),
+      input: { text: userMessage },
+      metadata: { updateId },
+    }),
+  ];
 
   try {
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
@@ -120,7 +139,16 @@ export async function runAgent(
     ];
 
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-      logEvent({ type: "llm_call_started", level: "info", iteration: iteration + 1 });
+      console.log();
+      logLlmCallStart({
+        chatId,
+        model: MODEL,
+        messageCount: messages.length,
+        isRetry: iteration > 0,
+      });
+      const llmStart = Date.now();
+      const llmStartIso = new Date().toISOString();
+      const messagesSent = messages.slice();
       const response = await client.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
@@ -128,23 +156,65 @@ export async function runAgent(
         tools,
         messages,
       });
+      const llmEndIso = new Date().toISOString();
+      const toolUseBlocks = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+      logLlmCall({
+        chatId,
+        model: MODEL,
+        latencyMs: Date.now() - llmStart,
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+        toolCallCount: toolUseBlocks.length,
+      });
+      const { id: generationId, event: generationEvent } = generationCreateEvent({
+        traceId,
+        name: "claude-haiku-tool-call",
+        model: MODEL,
+        startTime: llmStartIso,
+        endTime: llmEndIso,
+        input: messagesSent,
+        output: response.content,
+        usage: { input: response.usage.input_tokens, output: response.usage.output_tokens },
+      });
+      langfuseBatch.push(generationEvent);
 
       if (response.stop_reason !== "tool_use") {
-        return { finalText: extractText(response), commits };
+        const finalText = extractText(response);
+        langfuseBatch.push(traceCreateEvent({ id: traceId, output: finalText }));
+        return { finalText, commits, langfuseBatch };
       }
 
       messages.push({ role: "assistant", content: response.content });
 
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const block of response.content) {
-        if (block.type !== "tool_use") continue;
-        logEvent({
-          type: "llm_tool_call",
-          level: "info",
-          tool: block.name,
-          input: block.input,
+      for (const block of toolUseBlocks) {
+        const toolStart = Date.now();
+        const toolStartIso = new Date().toISOString();
+        const { content, isError } = await executeTool(env, block, commits, chatId, {
+          traceId,
+          parentObservationId: generationId,
+          batch: langfuseBatch,
         });
-        const { content, isError } = await executeTool(env, block, commits);
+        const toolEndIso = new Date().toISOString();
+        logToolCall({
+          chatId,
+          toolName: block.name,
+          args: block.input,
+          result: content,
+          latencyMs: Date.now() - toolStart,
+          success: !isError,
+        });
+        langfuseBatch.push(
+          spanCreateEvent({
+            traceId,
+            parentObservationId: generationId,
+            name: `tool:${block.name}`,
+            startTime: toolStartIso,
+            endTime: toolEndIso,
+            input: block.input,
+            output: content,
+          }),
+        );
         toolResults.push({
           type: "tool_result",
           tool_use_id: block.id,
@@ -159,22 +229,21 @@ export async function runAgent(
       commits.length > 0
         ? ` Before stopping, I did complete: ${commits.map((c) => `${c.file} (${c.commitUrl})`).join(", ")}.`
         : " I didn't make any changes.";
-    return {
-      finalText:
-        "This request was too complex or ambiguous for me to finish automatically — I hit my step limit." +
-        doneSoFar +
-        " Please rephrase your request or break it into smaller steps.",
-      commits,
-    };
+    const finalText =
+      "This request was too complex or ambiguous for me to finish automatically — I hit my step limit." +
+      doneSoFar +
+      " Please rephrase your request or break it into smaller steps.";
+    langfuseBatch.push(traceCreateEvent({ id: traceId, output: finalText }));
+    return { finalText, commits, langfuseBatch };
   } catch (err) {
+    logError({ chatId, step: "run_agent", error: err });
     const commitNote =
       commits.length > 0
         ? `Before the error, I did commit: ${commits.map((c) => `${c.file} (${c.commitUrl})`).join(", ")}.`
         : "No changes were committed.";
-    return {
-      finalText: `Something went wrong while processing your request: ${errMessage(err)}. ${commitNote}`,
-      commits,
-    };
+    const finalText = `Something went wrong while processing your request: ${errMessage(err)}. ${commitNote}`;
+    langfuseBatch.push(traceCreateEvent({ id: traceId, output: finalText }));
+    return { finalText, commits, langfuseBatch };
   }
 }
 
@@ -182,12 +251,14 @@ async function executeTool(
   env: Env,
   block: Anthropic.ToolUseBlock,
   commits: CommitRecord[],
+  chatId: number,
+  lf: LangfuseTurnContext,
 ): Promise<{ content: string; isError: boolean }> {
   if (block.name === READ_TOOL_NAME) {
     return handleReadContentFile(env, block.input);
   }
   if (block.name === UPDATE_TOOL_NAME) {
-    return handleUpdateContentFile(env, block.input, commits);
+    return handleUpdateContentFile(env, block.input, commits, chatId, lf);
   }
   return { content: `Unknown tool: ${block.name}`, isError: true };
 }
@@ -218,6 +289,8 @@ async function handleUpdateContentFile(
   env: Env,
   rawInput: unknown,
   commits: CommitRecord[],
+  chatId: number,
+  lf: LangfuseTurnContext,
 ): Promise<{ content: string; isError: boolean }> {
   const input = rawInput as { file?: string; content?: unknown; commit_message?: string };
   const key = input.file as ContentFileKey;
@@ -231,17 +304,8 @@ async function handleUpdateContentFile(
 
   const validation = entry.schema.safeParse(input.content);
   if (!validation.success) {
-    const validationError = formatZodError(validation.error);
-    logEvent({
-      type: "content_validated",
-      level: "info",
-      file: key,
-      valid: false,
-      error: validationError,
-    });
-    return { content: validationError, isError: true };
+    return { content: formatZodError(validation.error), isError: true };
   }
-  logEvent({ type: "content_validated", level: "info", file: key, valid: true });
 
   // Re-fetch right before writing — don't reuse a sha read earlier in the
   // conversation, it may be stale.
@@ -256,12 +320,57 @@ async function handleUpdateContentFile(
   }
 
   const newFileText = serializeContentFile(key, validation.data);
-  const commitMessage = input.commit_message?.trim() || `bot: update ${key}`;
+  // The Langfuse-Session trailer lets the queue() handler correlate a later
+  // deploy event back to this chat's trace, even though it arrives in a
+  // separate Worker invocation minutes later. Own line, after the subject,
+  // so it never changes what the commit message actually says. Must be
+  // stripped before ever being shown to the user (see index.ts).
+  const subject = input.commit_message?.trim() || `bot: update ${key}`;
+  const commitMessage = `${subject}\n\nLangfuse-Session: ${chatId}`;
 
   let result: { commitUrl: string; commitSha: string };
+  const commitStart = Date.now();
+  const commitStartIso = new Date().toISOString();
+  console.log({
+    timestamp: commitStartIso,
+    message: `📝 committing to GitHub: ${entry.path}`,
+    event: "github_commit_started",
+    chat_id: chatId,
+    file: entry.path,
+  });
   try {
     result = await updateFile(env, entry.path, newFileText, commitMessage, fresh.sha);
+    logGithubCommit({
+      chatId,
+      file: entry.path,
+      commitSha: result.commitSha,
+      latencyMs: Date.now() - commitStart,
+      success: true,
+    });
+    lf.batch.push(
+      spanCreateEvent({
+        traceId: lf.traceId,
+        parentObservationId: lf.parentObservationId,
+        name: "github-commit",
+        startTime: commitStartIso,
+        endTime: new Date().toISOString(),
+        input: { file: entry.path },
+        output: { commitUrl: result.commitUrl, commitSha: result.commitSha },
+      }),
+    );
   } catch (err) {
+    logGithubCommit({ chatId, file: entry.path, latencyMs: Date.now() - commitStart, success: false });
+    lf.batch.push(
+      spanCreateEvent({
+        traceId: lf.traceId,
+        parentObservationId: lf.parentObservationId,
+        name: "github-commit",
+        startTime: commitStartIso,
+        endTime: new Date().toISOString(),
+        input: { file: entry.path },
+        output: { error: errMessage(err) },
+      }),
+    );
     return { content: `Failed to commit the change to GitHub: ${errMessage(err)}`, isError: true };
   }
 

@@ -1,5 +1,4 @@
 import type { Env } from "./bot";
-import { logEvent } from "./logger";
 
 /**
  * GitHub REST API access via the Contents and Commits APIs. Cloudflare-Workers-only:
@@ -118,26 +117,15 @@ export async function updateFile(
     },
   };
 
-  try {
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: githubHeaders(env, { "Content-Type": "application/json" }),
-      body: JSON.stringify(body),
-    });
-    await throwIfNotOk(response);
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: githubHeaders(env, { "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  await throwIfNotOk(response);
 
-    const data = (await response.json()) as { commit: { html_url: string; sha: string } };
-    logEvent({ type: "github_commit", level: "info", file: path, sha: data.commit.sha });
-    return { commitUrl: data.commit.html_url, commitSha: data.commit.sha };
-  } catch (err) {
-    logEvent({
-      type: "github_commit_failed",
-      level: "error",
-      file: path,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    throw err;
-  }
+  const data = (await response.json()) as { commit: { html_url: string; sha: string } };
+  return { commitUrl: data.commit.html_url, commitSha: data.commit.sha };
 }
 
 export async function listRecentCommits(

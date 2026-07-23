@@ -3,7 +3,8 @@ import type { UserFromGetMe } from "grammy/types";
 import { runAgent } from "./agent";
 import { loadHistory, saveHistory, clearHistory, type ConversationTurn } from "./conversation-memory";
 import { undoLastBotChange } from "./undo";
-import { logEvent } from "./logger";
+import { logBotReply, logError } from "./logger";
+import { sendToLangfuse } from "./langfuse";
 
 export interface Env {
   BOT_TOKEN: string;
@@ -14,19 +15,23 @@ export interface Env {
   GITHUB_OWNER: string;
   GITHUB_REPO: string;
   CF_WEBHOOK_SECRET: string;
+  LANGFUSE_PUBLIC_KEY: string;
+  LANGFUSE_SECRET_KEY: string;
+  LANGFUSE_HOST: string;
   CONVERSATIONS: KVNamespace;
 }
 
-export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
+export function createBot(env: Env, botInfo: UserFromGetMe | undefined, cfCtx: ExecutionContext): Bot {
   const bot = new Bot(env.BOT_TOKEN, { botInfo });
 
   bot.use(async (ctx, next) => {
     if (!ctx.from || String(ctx.from.id) !== env.ALLOWED_USER_ID) {
       if (ctx.from) {
-        logEvent({
-          type: "message_rejected_allowlist",
-          level: "info",
-          userId: ctx.from.id,
+        console.log({
+          timestamp: new Date().toISOString(),
+          message: "👤 message rejected (user not allowlisted)",
+          event: "message_rejected_allowlist",
+          user_id: ctx.from.id,
         });
       }
       return;
@@ -51,42 +56,46 @@ export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
 
   bot.command("undo", async (ctx) => {
     await ctx.reply("⏳ Looking for the last bot change to undo...");
-    logEvent({ type: "undo_triggered", level: "info", userId: ctx.from?.id });
     try {
-      const result = await undoLastBotChange(env);
-      logEvent({ type: "undo_completed", level: "info" });
+      const result = await undoLastBotChange(env, ctx.chat.id);
+      console.log();
+      logBotReply(ctx.chat.id, result);
       await ctx.reply(result);
     } catch (err) {
-      logEvent({ type: "undo_failed", level: "error", error: errMessage(err) });
-      console.error("Undo command failed unexpectedly:", err);
+      logError({ chatId: ctx.chat.id, step: "undo_command", error: err });
       await ctx.reply("Something went wrong while trying to undo, please try again.");
     }
   });
 
   bot.on("message:text", async (ctx) => {
-    logEvent({
-      type: "message_received",
-      level: "info",
-      userId: ctx.from?.id,
-      text: truncate(ctx.message.text, 300),
-    });
-
     await ctx.reply("⏳ Working on it...");
 
     const chatId = ctx.chat.id;
 
     try {
       const history = await loadHistory(env, chatId);
-      const { finalText, commits } = await runAgent(env, ctx.message.text, history);
+      const { finalText, commits, langfuseBatch } = await runAgent(
+        env,
+        ctx.message.text,
+        history,
+        chatId,
+        ctx.update.update_id,
+      );
 
+      console.log();
+
+      let replyText: string;
       if (commits.length > 0) {
         const commitLines = commits
           .map((c) => `✅ ${c.file}: ${c.diffSummary} — ${c.commitUrl}`)
           .join("\n");
-        await ctx.reply(`${finalText}\n\n${commitLines}\n\nSite will update in about a minute.`);
+        replyText = `${finalText}\n\n${commitLines}\n\nSite will update in about a minute.`;
       } else {
-        await ctx.reply(finalText);
+        replyText = finalText;
       }
+      logBotReply(chatId, replyText);
+      cfCtx.waitUntil(sendToLangfuse(env, langfuseBatch));
+      await ctx.reply(replyText);
 
       const updatedHistory: ConversationTurn[] = [
         ...history,
@@ -95,18 +104,10 @@ export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
       ];
       await saveHistory(env, chatId, updatedHistory);
     } catch (err) {
-      console.error("Agent run failed:", err);
+      logError({ chatId, step: "message_handler", error: err });
       await ctx.reply("Something went wrong, please try again.");
     }
   });
 
   return bot;
-}
-
-function truncate(text: string, maxLength: number): string {
-  return text.length > maxLength ? text.slice(0, maxLength) : text;
-}
-
-function errMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

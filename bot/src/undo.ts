@@ -6,6 +6,7 @@ import {
   updateFile,
   GitHubApiError,
 } from "./github";
+import { logGithubCommit, logError } from "./logger";
 
 /**
  * Reverts the most recent bot-made commit to the site's content data files.
@@ -24,7 +25,7 @@ interface UndoFileResult {
   error?: string;
 }
 
-export async function undoLastBotChange(env: Env): Promise<string> {
+export async function undoLastBotChange(env: Env, chatId: number): Promise<string> {
   try {
     const commits = await listRecentCommits(env, CONTENT_DIR, RECENT_COMMITS_TO_SCAN);
     // Skip any manual commits made directly by the owner through GitHub's UI —
@@ -47,26 +48,30 @@ export async function undoLastBotChange(env: Env): Promise<string> {
 
     const results: UndoFileResult[] = [];
     for (const file of changedFiles) {
+      const start = Date.now();
       try {
         const before = await getFile(env, file, target.parentSha);
         // Fetch main's current sha fresh right before writing — never reuse
         // a sha read earlier, it may be stale (same rule as update_content_file).
         const current = await getFile(env, file, "main");
-        const { commitUrl } = await updateFile(
+        const { commitUrl, commitSha } = await updateFile(
           env,
           file,
           before.content,
           `bot: undo previous change to ${file} (reverting: ${target.message})`,
           current.sha,
         );
+        logGithubCommit({ chatId, file, commitSha, latencyMs: Date.now() - start, success: true });
         results.push({ file, success: true, commitUrl });
       } catch (err) {
+        logGithubCommit({ chatId, file, latencyMs: Date.now() - start, success: false });
         results.push({ file, success: false, error: errMessage(err) });
       }
     }
 
     return formatUndoReply(results);
   } catch (err) {
+    logError({ chatId, step: "undo_last_bot_change", error: err });
     return `Undo failed: ${errMessage(err)}`;
   }
 }
