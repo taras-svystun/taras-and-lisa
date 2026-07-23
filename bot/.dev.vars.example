@@ -3,3 +3,4 @@ WEBHOOK_SECRET=your-random-webhook-secret-here
 ALLOWED_USER_ID=your-telegram-numeric-user-id-here
 ANTHROPIC_API_KEY=your-anthropic-api-key-here
 GITHUB_PAT=your-github-fine-grained-pat-here
+CF_WEBHOOK_SECRET=your-random-cloudflare-notification-webhook-secret-here

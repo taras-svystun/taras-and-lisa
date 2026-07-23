@@ -3,6 +3,7 @@ import type { UserFromGetMe } from "grammy/types";
 import { runAgent } from "./agent";
 import { loadHistory, saveHistory, clearHistory, type ConversationTurn } from "./conversation-memory";
 import { undoLastBotChange } from "./undo";
+import { logEvent } from "./logger";
 
 export interface Env {
   BOT_TOKEN: string;
@@ -12,6 +13,7 @@ export interface Env {
   GITHUB_PAT: string;
   GITHUB_OWNER: string;
   GITHUB_REPO: string;
+  CF_WEBHOOK_SECRET: string;
   CONVERSATIONS: KVNamespace;
 }
 
@@ -20,6 +22,13 @@ export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
 
   bot.use(async (ctx, next) => {
     if (!ctx.from || String(ctx.from.id) !== env.ALLOWED_USER_ID) {
+      if (ctx.from) {
+        logEvent({
+          type: "message_rejected_allowlist",
+          level: "info",
+          userId: ctx.from.id,
+        });
+      }
       return;
     }
     await next();
@@ -42,16 +51,26 @@ export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
 
   bot.command("undo", async (ctx) => {
     await ctx.reply("⏳ Looking for the last bot change to undo...");
+    logEvent({ type: "undo_triggered", level: "info", userId: ctx.from?.id });
     try {
       const result = await undoLastBotChange(env);
+      logEvent({ type: "undo_completed", level: "info" });
       await ctx.reply(result);
     } catch (err) {
+      logEvent({ type: "undo_failed", level: "error", error: errMessage(err) });
       console.error("Undo command failed unexpectedly:", err);
       await ctx.reply("Something went wrong while trying to undo, please try again.");
     }
   });
 
   bot.on("message:text", async (ctx) => {
+    logEvent({
+      type: "message_received",
+      level: "info",
+      userId: ctx.from?.id,
+      text: truncate(ctx.message.text, 300),
+    });
+
     await ctx.reply("⏳ Working on it...");
 
     const chatId = ctx.chat.id;
@@ -82,4 +101,12 @@ export function createBot(env: Env, botInfo?: UserFromGetMe): Bot {
   });
 
   return bot;
+}
+
+function truncate(text: string, maxLength: number): string {
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

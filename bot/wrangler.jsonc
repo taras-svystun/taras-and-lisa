@@ -4,7 +4,13 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-07-16",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "invocation_logs": true,
+      "head_sampling_rate": 1
+    }
+  },
   "vars": {
     "GITHUB_OWNER": "taras-svystun",
     "GITHUB_REPO": "taras-and-lisa"
@@ -14,5 +20,12 @@
       "binding": "CONVERSATIONS",
       "id": "4ca6550cbce043e789571a9e7955dccd"
     }
-  ]
+  ],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "deploy-events"
+      }
+    ]
+  }
 }

@@ -9,6 +9,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.1",
     "grammy": "^1.45.0",
+    "postal-mime": "^2.7.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

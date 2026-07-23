@@ -4,6 +4,7 @@ import type { Env } from "./bot";
 import { CONTENT_FILES, type ServicesContent } from "./content-schemas";
 import { getFile, updateFile, GitHubApiError } from "./github";
 import type { ConversationTurn } from "./conversation-memory";
+import { logEvent } from "./logger";
 
 /**
  * The core agentic loop: takes a free-text instruction from the site owner
@@ -119,7 +120,7 @@ export async function runAgent(
     ];
 
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-      console.log(`[agent] iteration ${iteration + 1}/${MAX_ITERATIONS}`);
+      logEvent({ type: "llm_call_started", level: "info", iteration: iteration + 1 });
       const response = await client.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
@@ -137,6 +138,12 @@ export async function runAgent(
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const block of response.content) {
         if (block.type !== "tool_use") continue;
+        logEvent({
+          type: "llm_tool_call",
+          level: "info",
+          tool: block.name,
+          input: block.input,
+        });
         const { content, isError } = await executeTool(env, block, commits);
         toolResults.push({
           type: "tool_result",
@@ -224,8 +231,17 @@ async function handleUpdateContentFile(
 
   const validation = entry.schema.safeParse(input.content);
   if (!validation.success) {
-    return { content: formatZodError(validation.error), isError: true };
+    const validationError = formatZodError(validation.error);
+    logEvent({
+      type: "content_validated",
+      level: "info",
+      file: key,
+      valid: false,
+      error: validationError,
+    });
+    return { content: validationError, isError: true };
   }
+  logEvent({ type: "content_validated", level: "info", file: key, valid: true });
 
   // Re-fetch right before writing — don't reuse a sha read earlier in the
   // conversation, it may be stale.
