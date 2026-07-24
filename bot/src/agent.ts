@@ -24,7 +24,7 @@ interface LangfuseTurnContext {
  */
 
 // One-line change if we ever want to switch models.
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 2048;
 const MAX_ITERATIONS = 6;
 // Low but non-zero — trims occasional variance-driven scope creep on top of
@@ -205,7 +205,7 @@ export async function runAgent(
       });
       const { id: generationId, event: generationEvent } = generationCreateEvent({
         traceId,
-        name: "claude-haiku-tool-call",
+        name: "claude-sonnet-tool-call",
         model: MODEL,
         startTime: llmStartIso,
         endTime: llmEndIso,

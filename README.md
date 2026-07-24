@@ -43,7 +43,7 @@ flowchart LR
 
 **Bot** (`bot/`, Cloudflare Worker, TypeScript):
 - [grammY](https://grammy.dev/) — Telegram Bot API framework
-- `@anthropic-ai/sdk` — Claude tool-calling (model: `claude-haiku-4-5-20251001`)
+- `@anthropic-ai/sdk` — Claude tool-calling (model: `claude-sonnet-5`)
 - `zod` — strict schema validation for every content file before it's committed
 - `postal-mime` — MIME parsing for an earlier, now-dormant email-based notification path
 - Cloudflare KV — short-term conversation memory per chat
