@@ -150,3 +150,8 @@ vite.config.ts.timestamp-*
 
 # Design handoff export bundle (duplicated inside design_handoff_taras_lisa_site/)
 taras-and-lisa-design.zip
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
