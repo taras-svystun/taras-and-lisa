@@ -39,7 +39,7 @@ Worker `typetodeploy-bot` (`bot/wrangler.jsonc`), entry `src/index.ts`, `nodejs_
 - **`bot/src/content-schemas.ts`** — Zod schemas mirroring `site/src/content.config.ts` field-for-field (**manually kept in sync — no shared code**). **Every `z.object()` uses `.strict()`** (incident-driven, see below — never remove); `site/src/content.config.ts` now has `.strict()` too as of 2026-07-23 (previously a known gap).
 - **`bot/src/github.ts`** — GitHub Contents/Commits REST client. **Must use `Buffer.from(...)`, never `btoa`/`atob`** — the latter silently corrupts the Cyrillic text in this site's content. No longer logs internally — callers (`agent.ts`, `undo.ts`) log via `logGithubCommit` since they're the ones with `chatId` in scope.
 - **`bot/src/undo.ts`** — `undoLastBotChange(env, chatId)` (now takes `chatId` for logging only — no behavior change). Scans the last 5 commits touching `site/src/data`, finds the most recent one whose **committer name is exactly `"TypeToDeploy Bot"`**, and reverts only that. **It does NOT revert "the latest commit on main" generically** — a manual GitHub-web-UI edit is silently skipped, not reverted (confirmed by direct code read, 2026-07-17). If no bot commit is found in the last 5, it just says so and does nothing else. Double-undo (running it twice in a row) re-applies the original change — expected, not a bug, documented in `/start`'s help text. Each reverted file now logs via `logGithubCommit`; the outer failure path logs via `logError`.
-- **`bot/src/agent.ts`** — `runAgent(env, userMessage, history, chatId, updateId)` (now takes `chatId`/`updateId`, and returns a `langfuseBatch` alongside `finalText`/`commits`), hand-rolled Claude tool-calling loop (`MODEL="claude-sonnet-5"` as of 2026-07-24 (was `claude-haiku-4-5-20251001`), `MAX_TOKENS=2048`, `MAX_ITERATIONS=6`, `TEMPERATURE=0.2` as of 2026-07-24, loop termination manually verified — no off-by-one). Two tools: `read_content_file`, `update_content_file`. **Critical invariant: `content` passed to `update_content_file` must always be the COMPLETE file** — any omitted field is silently deleted on the next commit. System prompt also forbids inventing fields not in a schema. **SCOPE CONFINEMENT rule (added 2026-07-24):** every field of `site`/`portfolio` is grouped into a named section (Home/About/Contact; Header/Experience/Projects/Education/CTA) in the prompt, with an explicit rule against touching a sibling section plus a mandatory pre-commit self-check — see History below for the incident that motivated this. `SECTION_GROUPS` in this file mirrors those same groupings for the Telegram confirmation message (`summarizeObjectDiff`) — keep both in sync if the prompt's groupings ever change. Separate TONE AND STYLE block governs phrasing only (casual, user's language, no corporate filler). Every LLM call and tool call is now logged (`logLlmCallStart`/`logLlmCall`/`logToolCall`) and mirrored into the Langfuse batch as a `generation-create`/`span-create` pair; the GitHub commit inside `update_content_file` appends the `Langfuse-Session` trailer described above.
+- **`bot/src/agent.ts`** — `runAgent(env, userMessage, history, chatId, updateId)` (now takes `chatId`/`updateId`, and returns a `langfuseBatch` alongside `finalText`/`commits`), hand-rolled Claude tool-calling loop (`MODEL="claude-sonnet-5"` as of 2026-07-24 (was `claude-haiku-4-5-20251001`), `MAX_TOKENS=2048`, `MAX_ITERATIONS=6`, loop termination manually verified — no off-by-one). **No `temperature`/`top_p`/`top_k` on the `messages.create` call** — these are rejected outright (400) on Sonnet 5 and every model newer than Opus 4.6; a brief `temperature: 0.2` experiment added 2026-07-24 was removed the same day once this broke in production. Do not re-add any sampling parameter unless the configured model is confirmed to still support it. Two tools: `read_content_file`, `update_content_file`. **Critical invariant: `content` passed to `update_content_file` must always be the COMPLETE file** — any omitted field is silently deleted on the next commit. System prompt also forbids inventing fields not in a schema. **SCOPE CONFINEMENT rule (added 2026-07-24):** every field of `site`/`portfolio` is grouped into a named section (Home/About/Contact; Header/Experience/Projects/Education/CTA) in the prompt, with an explicit rule against touching a sibling section plus a mandatory pre-commit self-check — see History below for the incident that motivated this. `SECTION_GROUPS` in this file mirrors those same groupings for the Telegram confirmation message (`summarizeObjectDiff`) — keep both in sync if the prompt's groupings ever change. Separate TONE AND STYLE block governs phrasing only (casual, user's language, no corporate filler). Every LLM call and tool call is now logged (`logLlmCallStart`/`logLlmCall`/`logToolCall`) and mirrored into the Langfuse batch as a `generation-create`/`span-create` pair; the GitHub commit inside `update_content_file` appends the `Langfuse-Session` trailer described above.
 
 ## Secrets and environment variables
 
@@ -54,6 +54,22 @@ GitHub PAT: fine-grained, scoped to this repo only, `contents: read/write` + `me
 ## GitHub repo info
 
 Owner **taras-svystun**, repo **taras-and-lisa**, default branch **main**, remote `git@github.com:taras-svystun/taras-and-lisa.git`.
+
+## How to deploy
+
+**Site (`taras-and-lisa`):** Auto-deploys via Cloudflare Workers Builds on every push to `main` that touches `site/`. Confirmed by timing correlation: every commit to `site/src/data/*.json` is followed by a new `wrangler deployments list --name taras-and-lisa` entry roughly 1 minute later, consistently, across many commits — a `git push` alone is sufficient here.
+
+**Bot (`typetodeploy-bot`): NO auto-deploy — a `git push` alone does NOT update the live bot.** Confirmed 2026-07-24 by:
+- No `.github/workflows` directory exists anywhere in this repo (no GitHub Actions deploying either project).
+- `wrangler deployments list --name typetodeploy-bot` shows no timing correlation with `bot/`-touching commits the way the site does — deployments cluster around manual actions (`wrangler secret put`, which triggers its own implicit deploy, and manual `wrangler deploy` runs) instead of landing ~1 minute after each push. One deployment sat 13+ minutes after the nearest commit; several commits have no corresponding deployment near them at all.
+- There is no Workers Builds / git integration configured for `typetodeploy-bot` — only for `taras-and-lisa`.
+
+**After any change to `bot/`, you must run:**
+```bash
+cd bot
+npx wrangler deploy
+```
+Committing and pushing to `main` is necessary for history/collaboration but is **not sufficient** on its own — the deployed Worker will keep running the old code until `wrangler deploy` is run from `bot/`. Don't assume a bot fix is live just because it's on `main`.
 
 ## Rules — things NOT to do
 
@@ -72,6 +88,8 @@ Owner **taras-svystun**, repo **taras-and-lisa**, default branch **main**, remot
 - After scaffolding new top-level files/dirs, verify with `git status` that they're trackable.
 - Don't merge or delete the `cloudflare/workers-autoconfig` branch without the owner's explicit sign-off — it contains real, substantive config, not bot noise.
 - Never let an edit scoped to one named section (e.g. "home page") touch a sibling section in the same content file, even if it would look stylistically consistent — this was a real incident (see 2026-07-24 History entry), not a hypothetical. If `SYSTEM_PROMPT`'s section groupings in `bot/src/agent.ts` ever change, update `SECTION_GROUPS` in the same file to match — they're deliberately kept in sync so the Telegram confirmation message can't silently drift from what the prompt actually enforces.
+- Never set `temperature`, `top_p`, or `top_k` on the bot's `messages.create` call — Sonnet 5 and every model newer than Opus 4.6 reject the request with a 400 if any of these are present at all, regardless of value. Omit the field entirely; don't set it to a "safe" default.
+- After any change to `bot/`, remember `git push` alone does NOT deploy the bot — always run `npx wrangler deploy` from `bot/` too (see "How to deploy" above).
 
 ## Open items (not yet resolved)
 
@@ -80,6 +98,10 @@ Owner **taras-svystun**, repo **taras-and-lisa**, default branch **main**, remot
 - Whether the `cloudflare/workers-autoconfig` branch (real `@astrojs/cloudflare` adapter + `site/wrangler.jsonc` + `observability` config) should be merged to `main` — left for the owner to decide; not merged or deleted this session.
 
 ## History (condensed)
+
+**2026-07-24 — Fixed `temperature` 400 error + confirmed bot deploy mechanism:**
+- **Incident:** switching `MODEL` to `claude-sonnet-5` (below) surfaced a `400 invalid_request_error: temperature is deprecated for this model` at runtime — Anthropic removed `temperature`/`top_p`/`top_k` on all models newer than Opus 4.6 (Sonnet 4.6, Sonnet 5, Opus 4.7/4.8); they reject the request outright if the field is present at all, even at a "safe" value. **Fix:** removed the `TEMPERATURE` constant and the `temperature` field from `agent.ts`'s `messages.create` call entirely (not set to a value — the field must be absent). Grepped for `top_p`/`top_k`: neither was present anywhere else. Omitting these params is safe regardless of which model is configured, so no downside if the model changes again later.
+- **Deploy mechanism confirmed** (see new "How to deploy" section above): the bot has no auto-deploy, unlike the site. `git push` alone does not update the live bot — `npx wrangler deploy` from `bot/` is always required. This fix was deployed live via that command after being committed.
 
 **2026-07-24 — Model switched to Sonnet 5:** `bot/src/agent.ts`'s `MODEL` changed from `claude-haiku-4-5-20251001` to `claude-sonnet-5` (owner request, no other behavior change). Langfuse generation name updated to match (`claude-sonnet-tool-call`). `MAX_TOKENS`/`MAX_ITERATIONS`/`TEMPERATURE` left as-is — revisit if Sonnet's larger responses ever hit the 2048-token cap.
 

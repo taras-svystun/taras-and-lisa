@@ -27,9 +27,6 @@ interface LangfuseTurnContext {
 const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 2048;
 const MAX_ITERATIONS = 6;
-// Low but non-zero — trims occasional variance-driven scope creep on top of
-// the SCOPE CONFINEMENT prompt rules, without fully determinizing the model.
-const TEMPERATURE = 0.2;
 
 type ContentFileKey = keyof typeof CONTENT_FILES;
 const CONTENT_FILE_KEYS = Object.keys(CONTENT_FILES) as ContentFileKey[];
@@ -188,7 +185,6 @@ export async function runAgent(
       const response = await client.messages.create({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
         system: SYSTEM_PROMPT,
         tools,
         messages,
